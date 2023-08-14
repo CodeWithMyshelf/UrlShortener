@@ -24,59 +24,50 @@ namespace FunctionApp1
             log.LogInformation("C# HTTP trigger function processed a request.");
             string connectionString = "Data Source=localhost;Initial Catalog=AzureFunc;Integrated Security=True;TrustServerCertificate=True;";
             string shortUrl = req.Query["shortUrl"];
+
             UrlMapping mapping = new UrlMapping();
 
             #region get rowCount 
 
-                List<UrlMapping> results = new List<UrlMapping>();
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    connection.Open();
 
-                try
-                {      
-                    using (SqlConnection connection = new SqlConnection(connectionString))
+                    string query = "SELECT * FROM url_mapping WHERE short_url = @ShortUrl";
+
+                    using (SqlCommand command = new SqlCommand(query, connection))
                     {
-                        connection.Open();
+                        command.Parameters.AddWithValue("@ShortUrl", shortUrl);
 
-                        string query = "SELECT * FROM url_mapping WHERE short_url = @ShortUrl";
-
-                        using (SqlCommand command = new SqlCommand(query, connection))
+                        using (SqlDataReader reader = command.ExecuteReader())
                         {
-                            command.Parameters.AddWithValue("@ShortUrl", shortUrl);
-
-                            using (SqlDataReader reader = command.ExecuteReader())
+                            while (reader.Read())
                             {
-                                while (reader.Read())
+                                mapping = new UrlMapping
                                 {
-                                     mapping = new UrlMapping
-                                    {
-                                        Id = (int)reader["id"],
-                                        LongUrl = (string)reader["long_url"],
-                                        ShortUrl = (string)reader["short_url"]
-                                    };
+                                    Id = (int)reader["id"],
+                                    LongUrl = (string)reader["long_url"],
+                                    ShortUrl = (string)reader["short_url"]
+                                };
                                 return new RedirectResult(mapping.LongUrl, permanent: false); // Perform a temporary redirect (HTTP 302)
-                                results.Add(mapping);
-                                }
+
                             }
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    // Handle exceptions
-                }              
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions
+            }
 
-    #endregion
+            #endregion
 
-        
+            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-    string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            shortUrl = shortUrl ?? data?.name;
-
-            string responseMessage = string.IsNullOrEmpty(shortUrl)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {shortUrl}. This HTTP triggered function executed successfully.";
-
-            return new OkObjectResult( mapping );
+            return new OkObjectResult(mapping);
         }
     }
 }

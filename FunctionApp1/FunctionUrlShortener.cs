@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Microsoft.Data.SqlClient;
+using System.Net;
 
 namespace FunctionApp1
 {
@@ -27,7 +28,6 @@ namespace FunctionApp1
             string url = req.Query["url"];
             string messsage = "";
             string shortUrl = $"www.getit.com/";
-
 
             #region get rowCount 
             try
@@ -53,7 +53,7 @@ namespace FunctionApp1
             }
             #endregion
 
-           shortUrl += $"{rowCount + 1}";
+            shortUrl += $"{rowCount + 1}";
 
             #region URL validation
             if (Uri.TryCreate(url, UriKind.Absolute, out Uri uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
@@ -68,7 +68,7 @@ namespace FunctionApp1
 
             #region sql
             try
-            {               
+            {
 
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
@@ -80,7 +80,6 @@ namespace FunctionApp1
                     {
                         command.Parameters.AddWithValue("@LongUrl", url);
                         command.Parameters.AddWithValue("@ShortUrl", shortUrl);
-
                         command.ExecuteNonQuery();
                     }
                 }
@@ -93,16 +92,18 @@ namespace FunctionApp1
             }
             #endregion
 
-
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            url = url ?? data?.name;
 
             string responseMessage = string.IsNullOrEmpty(url)
-                ? $"{messsage}"
-                : $"Hello,<a>{url}<a/>. This HTTP triggered function executed successfully.";
+             ? $"{messsage}"
+             : $"Your shortened version of <a href=\"{url}\">{url}</a> is: <a href=\"{shortUrl}\">{shortUrl}</a>";
 
-            return new OkObjectResult(responseMessage);
+            return new ContentResult
+            {
+                Content = responseMessage,
+                ContentType = "text/html",
+                StatusCode = (int)HttpStatusCode.OK
+            };
         }
     }
 }
